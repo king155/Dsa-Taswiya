@@ -1,0 +1,189 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>لوحة متابعة تسوية الأراضي الفلاحية</title>
+<style>
+  :root{--green:#1f5130;--green2:#2e7046;--gold:#b8862b;--cream:#faf7ef;--ink:#1d1d1b;--muted:#6b6b63;--line:#dcd6c4;--card:#ffffff}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--cream);color:var(--ink);font-family:"Times New Roman",Times,serif;font-weight:700;font-size:17px}
+  header{background:linear-gradient(135deg,var(--green),var(--green2));color:#fff;padding:22px 20px 18px;border-bottom:4px solid var(--gold)}
+  header h1{margin:0 0 6px;font-size:26px}
+  header .sub{opacity:.92;font-size:16px}
+  .bar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;margin-top:10px;font-size:15px}
+  .live{display:inline-flex;align-items:center;gap:6px}
+  .dot{width:10px;height:10px;border-radius:50%;background:#7dd87d;display:inline-block}
+  .dot.stale{background:#f0b429}.dot.off{background:#e55}
+  button{font:inherit;font-weight:700;padding:6px 14px;border-radius:6px;border:1px solid #fff;background:transparent;color:#fff;cursor:pointer}
+  main{max-width:1200px;margin:0 auto;padding:18px 16px 40px}
+  .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:18px}
+  .kpi{background:var(--card);border:1px solid var(--line);border-top:4px solid var(--green2);border-radius:8px;padding:12px 14px}
+  .kpi.gold{border-top-color:var(--gold)}
+  .kpi .v{font-size:28px;color:var(--green)}
+  .kpi .l{color:var(--muted);font-size:15px}
+  section{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:14px 16px;margin-bottom:18px}
+  section h2{margin:0 0 10px;font-size:20px;color:var(--green);border-bottom:1px solid var(--line);padding-bottom:6px}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+  @media (max-width:820px){.grid2{grid-template-columns:1fr}}
+  table{width:100%;border-collapse:collapse;font-size:15px}
+  th,td{border:1px solid var(--line);padding:6px 8px;text-align:center}
+  th{background:#eef3ea;color:var(--green)}
+  td.name{text-align:right}
+  tr.zero td{color:#a09d92}
+  tfoot td{font-weight:700;background:#f6f2e6}
+  .legend{display:flex;flex-wrap:wrap;gap:12px;font-size:14px;margin-top:8px}
+  .sw{display:inline-block;width:12px;height:12px;border-radius:3px;margin-inline-end:5px;vertical-align:middle}
+  .stack{display:grid;grid-template-columns:150px 1fr 40px;gap:8px;align-items:center;margin:5px 0;font-size:14px}
+  .track{display:flex;height:16px;background:#f1eee4;border-radius:4px;overflow:hidden}
+  .seg{height:100%}
+  .note{color:var(--muted);font-size:14px;margin-top:8px}
+  .cover{font-size:18px}
+  .cover b{color:var(--green)}
+  @media print{header{-webkit-print-color-adjust:exact;print-color-adjust:exact}button{display:none}section,.kpi{break-inside:avoid}}
+  .err{color:#a33;font-size:15px}
+</style>
+</head>
+<body>
+<header>
+  <h1>متابعة تسوية الأراضي الفلاحية — ولاية أم البواقي</h1>
+  <div class="sub">مديرية المصالح الفلاحية</div>
+  <div class="bar">
+    <div class="live"><span class="dot" id="dot"></span><span id="status">جاري الاتصال…</span></div>
+    <div>آخر تحديث: <span id="updated">—</span></div>
+    <button onclick="window.print()">طباعة / حفظ PDF</button>
+  </div>
+</header>
+<main>
+  <div class="kpis" id="kpis"></div>
+
+  <div class="grid2">
+    <section>
+      <h2>توزيع الملفات حسب المرحلة</h2>
+      <div id="donut"></div>
+      <div class="legend" id="legendStages"></div>
+    </section>
+    <section>
+      <h2>تغطية الولاية</h2>
+      <div class="cover" id="cover"></div>
+      <div class="note" id="extra"></div>
+    </section>
+  </div>
+
+  <section>
+    <h2>الملفات في كل بلدية (حسب المرحلة)</h2>
+    <div id="stacks"></div>
+    <div class="legend" id="legendStacks"></div>
+  </section>
+
+  <section>
+    <h2>جدول البلديات</h2>
+    <div style="overflow-x:auto">
+      <table>
+        <thead><tr>
+          <th>البلدية</th><th>اللجنة المصغرة</th><th>اللجنة الولائية</th><th>التحقيق العقاري</th>
+          <th>المؤجلون</th><th>المرفوضون</th><th>المغلقة</th><th>المساحة (هكتار)</th><th>المعارضات</th>
+        </tr></thead>
+        <tbody id="rows"></tbody>
+        <tfoot id="foot"></tfoot>
+      </table>
+    </div>
+    <div class="note">الصفوف الرمادية بلا ملفات بعد. المساحة مجموع الملفات التي فيها مساحة مفهومة فقط.</div>
+  </section>
+</main>
+
+<script>
+/* ضع هنا رابط Google Apps Script للقراءة (رابط النشر الذي ينتهي بـ /exec) */
+const STATS_URL = 'PASTE_APPS_SCRIPT_WEB_APP_URL_HERE';
+const REFRESH_MS = 60000;
+const STAGES = [
+  {k:'committee',l:'اللجنة المصغرة',c:'#1f5130'},
+  {k:'wilaya',l:'اللجنة الولائية',c:'#2e7046'},
+  {k:'investigation',l:'التحقيق العقاري',c:'#b8862b'},
+  {k:'deferred',l:'المؤجلون',c:'#8a8f5a'},
+  {k:'rejected',l:'المرفوضون',c:'#a33b3b'}
+];
+const $ = id => document.getElementById(id);
+const esc = s => String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const num = n => Number(n||0).toLocaleString('ar-DZ',{maximumFractionDigits:2});
+const fmtDate = iso => { try{ return new Date(iso).toLocaleString('ar-DZ',{dateStyle:'medium',timeStyle:'short'}); }catch(e){ return iso||'—'; } };
+
+function render(d){
+  const t = d.totals || {};
+  const munsAll = d.municipalities || [];
+  const withFiles = munsAll.filter(m => STAGES.some(s => (m[s.k]||0) > 0) || (m.closed||0) > 0).length;
+  const totalArea = STAGES.reduce((a,s)=>a+((t[s.k]&&t[s.k].areaHa)||0),0);
+  const opp = d.oppositionPeople || 0;
+
+  $('kpis').innerHTML = [
+    ['اللجنة المصغرة', t.committee?t.committee.files:0],
+    ['اللجنة الولائية', t.wilaya?t.wilaya.files:0],
+    ['التحقيق العقاري', t.investigation?t.investigation.files:0],
+    ['المؤجلون', t.deferred?t.deferred.files:0],
+    ['المرفوضون', t.rejected?t.rejected.files:0],
+    ['الجداول المغلقة (ملفات)', t.closed?t.closed.files:0],
+    ['المساحة الإجمالية (هكتار)', totalArea],
+    ['المعارضات (أشخاص)', opp]
+  ].map((k,i)=>`<div class="kpi ${i%2?'gold':''}"><div class="v">${num(k[1])}</div><div class="l">${esc(k[0])}</div></div>`).join('');
+
+  // donut
+  const counts = STAGES.map(s => ({...s, v: (t[s.k]&&t[s.k].files)||0}));
+  const total = counts.reduce((a,c)=>a+c.v,0) || 1;
+  let acc = 0; const R=70, C=2*Math.PI*R;
+  const arcs = counts.filter(c=>c.v>0).map(c=>{
+    const len = c.v/total*C;
+    const el = `<circle r="${R}" cx="100" cy="100" fill="none" stroke="${c.c}" stroke-width="34" stroke-dasharray="${len} ${C-len}" stroke-dashoffset="${-acc}" transform="rotate(-90 100 100)"></circle>`;
+    acc += len; return el;
+  }).join('');
+  $('donut').innerHTML = `<svg viewBox="0 0 200 200" width="220" height="220" style="display:block;margin:auto">${arcs}<text x="100" y="98" text-anchor="middle" font-size="22" fill="#1f5130">${num(total===1&&counts.every(c=>!c.v)?0:counts.reduce((a,c)=>a+c.v,0))}</text><text x="100" y="118" text-anchor="middle" font-size="13" fill="#6b6b63">ملف</text></svg>`;
+  $('legendStages').innerHTML = counts.map(c=>`<span><span class="sw" style="background:${c.c}"></span>${esc(c.l)}: ${num(c.v)}</span>`).join('');
+
+  $('cover').innerHTML = `<b>${num(withFiles)}</b> من أصل <b>${num(d.totalMunicipalities||29)}</b> بلدية فيها ملفات.`;
+  $('extra').innerHTML = `الملفات المكررة: ${num(d.duplicates||0)} — ملفات بمساحة غير مفهومة تحتاج مراجعة: ${num(d.rawArea||0)}`;
+
+  // stacked bars per municipality (only those with files)
+  const withRows = munsAll.filter(m => STAGES.some(s=>(m[s.k]||0)>0) || (m.closed||0)>0);
+  const maxTotal = Math.max(1, ...withRows.map(m => STAGES.reduce((a,s)=>a+(m[s.k]||0),0)));
+  $('stacks').innerHTML = withRows.length ? withRows.map(m=>{
+    const sum = STAGES.reduce((a,s)=>a+(m[s.k]||0),0);
+    const segs = STAGES.map(s => { const v=m[s.k]||0; return v?`<div class="seg" title="${esc(s.l)}: ${v}" style="width:${(v/maxTotal*100).toFixed(2)}%;background:${s.c}"></div>`:''; }).join('');
+    return `<div class="stack"><div>${esc(m.name)}</div><div class="track">${segs}</div><div>${num(sum)}</div></div>`;
+  }).join('') : '<div class="note">لا توجد ملفات بعد.</div>';
+  $('legendStacks').innerHTML = STAGES.map(s=>`<span><span class="sw" style="background:${s.c}"></span>${esc(s.l)}</span>`).join('');
+
+  // table
+  const sorted = [...munsAll].sort((a,b)=>a.name.localeCompare(b.name,'ar'));
+  $('rows').innerHTML = sorted.map(m=>{
+    const areaTot = STAGES.reduce((a,s)=>a+((m.areaHa&&m.areaHa[s.k])||0),0);
+    const zero = !STAGES.some(s=>(m[s.k]||0)>0) && !(m.closed>0);
+    return `<tr class="${zero?'zero':''}"><td class="name">${esc(m.name)}</td><td>${num(m.committee)}</td><td>${num(m.wilaya)}</td><td>${num(m.investigation)}</td><td>${num(m.deferred)}</td><td>${num(m.rejected)}</td><td>${num(m.closed)}</td><td>${areaTot.toLocaleString('ar-DZ',{maximumFractionDigits:2})}</td><td>${num(m.opp)}</td></tr>`;
+  }).join('');
+  const sum = k => sorted.reduce((a,m)=>a+(m[k]||0),0);
+  const sumArea = sorted.reduce((a,m)=>a+STAGES.reduce((x,s)=>x+((m.areaHa&&m.areaHa[s.k])||0),0),0);
+  $('foot').innerHTML = `<tr><td class="name">المجموع</td><td>${num(sum('committee'))}</td><td>${num(sum('wilaya'))}</td><td>${num(sum('investigation'))}</td><td>${num(sum('deferred'))}</td><td>${num(sum('rejected'))}</td><td>${num(sum('closed'))}</td><td>${sumArea.toLocaleString('ar-DZ',{maximumFractionDigits:2})}</td><td>${num(sum('opp'))}</td></tr>`;
+}
+
+let lastOk = 0;
+async function load(){
+  if(!STATS_URL || STATS_URL.startsWith('PASTE')){
+    $('status').textContent='لم يُضبط رابط البيانات بعد'; $('dot').className='dot off'; return;
+  }
+  try{
+    const res = await fetch(STATS_URL,{cache:'no-store'});
+    const d = await res.json();
+    if(!d || d.ok===false || !d.totals){ throw new Error(d&&d.error?d.error:'لا توجد بيانات بعد'); }
+    render(d);
+    lastOk = Date.now();
+    $('updated').textContent = fmtDate(d.updatedAt);
+    $('status').textContent = 'مباشر — يتحدث كل دقيقة';
+    $('dot').className='dot';
+  }catch(e){
+    $('status').textContent = 'تعذّر التحديث: ' + e.message;
+    $('dot').className = lastOk && Date.now()-lastOk < 15*60000 ? 'dot stale' : 'dot off';
+  }
+}
+load();
+setInterval(load, REFRESH_MS);
+</script>
+</body>
+</html>
