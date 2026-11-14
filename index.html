@@ -196,7 +196,7 @@ async function load(){
     render(d);
     lastOk = Date.now();
     $('updated').textContent = fmtDate(d.updatedAt);
-    $('status').textContent = 'مباشر — يتحدث كل دقيقة';
+    $('status').textContent = 'مباشر — يتم التحديث كل دقيقة';
     $('dot').className='dot';
   }catch(e){
     $('status').textContent = 'تعذّر التحديث: ' + e.message;
