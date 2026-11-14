@@ -93,8 +93,8 @@
 </main>
 
 <script>
-/* ضع هنا رابط Google Apps Script للقراءة (رابط النشر الذي ينتهي بـ /exec) */
-const STATS_URL = 'https://script.google.com/macros/s/AKfycbyJqQ5C1IrJUO0OXDEe3wLlCgKmyH1GUIH-JtZeihxprquuLJ4CEdy6yk0HwSABWEGRMA/exec';
+/* ضع هنا رابط سلة npoint بالصيغة https://api.npoint.io/رمز-السلة */
+const STATS_URL = 'https://api.npoint.io/43d55d26b54fb1adbbf8';
 const REFRESH_MS = 60000;
 const STAGES = [
   {k:'committee',l:'اللجنة المصغرة',c:'#1f5130'},
@@ -165,11 +165,11 @@ function render(d){
 
 let lastOk = 0;
 async function load(){
-  if(!STATS_URL || STATS_URL.startsWith('PASTE')){
+  if(!STATS_URL || STATS_URL.includes('PASTE_BIN_ID')){
     $('status').textContent='لم يُضبط رابط البيانات بعد'; $('dot').className='dot off'; return;
   }
   try{
-    const res = await fetch(STATS_URL,{cache:'no-store'});
+    const res = await fetch(STATS_URL+'?t='+Date.now(),{cache:'no-store'});
     const d = await res.json();
     if(!d || d.ok===false || !d.totals){ throw new Error(d&&d.error?d.error:'لا توجد بيانات بعد'); }
     render(d);
